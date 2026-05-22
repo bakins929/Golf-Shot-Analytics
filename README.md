@@ -29,6 +29,8 @@ The HTML file contains code to visualize launch monitor data exported via CSV. T
 - Click to navigate to your CSV file, or drag and drop it into the dashed square area
 
 
+<img width="1702" height="3343" alt="screen" src="https://github.com/user-attachments/assets/bcce24b9-8b12-4d1c-a80b-b219eeaa36e4" />
+
 
 
 ## Potential additions:
