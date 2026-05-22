@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shot Analytics v4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1f0f;--card:rgba(20,35,20,.9);--flag:#e8c84a;--white:#f0f0e8;--muted:#8a9a7a;--accent:#6db36d;--danger:#e05a5a;--border:rgba(109,179,109,.15);--sel:#fff07a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--white);font-family:'Sora',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(109,179,109,.015) 2px,rgba(109,179,109,.015) 4px),repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(0,0,0,.1) 8px,rgba(0,0,0,.1) 9px);pointer-events:none;z-index:0}
+
+/* UPLOAD */
+#uploadScreen{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:0;padding:24px}
+.upload-logo{font-family:'DM Serif Display',serif;font-size:clamp(2.2rem,6vw,3.6rem);color:var(--flag);letter-spacing:-1px;margin-bottom:6px;text-align:center}
+.upload-sub{font-family:'DM Mono',monospace;font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:48px;text-align:center}
+#dropZone{width:min(520px,90vw);border:2px dashed rgba(109,179,109,.3);border-radius:4px;padding:52px 32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;background:var(--card)}
+#dropZone:hover,#dropZone.over{border-color:var(--accent);background:rgba(109,179,109,.05)}
+#dropZone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:2.8rem;margin-bottom:16px;opacity:.5}
+.drop-title{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white);margin-bottom:10px}
+.drop-hint{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.04em;line-height:1.9}
+.drop-hint b{color:var(--accent)}
+#parseError{margin-top:20px;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--danger);display:none;max-width:440px;text-align:center}
+
+/* DASHBOARD */
+#dashboard{display:none;position:relative;z-index:1}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px}
+header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
+.logo-area h1{font-family:'DM Serif Display',serif;font-size:clamp(1.4rem,4vw,2.2rem);color:var(--flag);letter-spacing:-.5px;line-height:1}
+.logo-area p{font-size:.65rem;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;margin-top:4px;font-family:'DM Mono',monospace}
+.header-right{display:flex;align-items:center;gap:14px}
+.shot-count{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);text-align:right}
+.shot-count span{display:block;font-size:1.7rem;color:var(--accent);font-family:'DM Serif Display',serif;line-height:1}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 13px;border-radius:2px;font-family:'DM Mono',monospace;font-size:.7rem;cursor:pointer;transition:all .2s;letter-spacing:.05em;white-space:nowrap}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm.primary{border-color:var(--accent);color:var(--accent)}
+.btn-sm.primary:hover{background:var(--accent);color:var(--bg)}
+
+/* MAPPING PANEL */
+#mappingPanel{background:var(--card);border:1px solid var(--border);border-radius:2px;margin-bottom:20px;overflow:hidden}
+.mapping-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.mapping-header-left{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.mapping-header-left b{color:var(--accent)}
+.mapping-toggle{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)}
+#mappingBody{padding:16px;display:none}
+.mapping-info{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:14px;line-height:1.8}
+.mapper-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-bottom:14px}
+.mapper-row{display:flex;flex-direction:column;gap:5px}
+.mapper-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
+.mapper-label b{color:var(--white)}
+.mapper-select{background:#111e11;border:1px solid var(--border);color:var(--white);padding:6px 10px;border-radius:2px;font-family:'DM Mono',monospace;font-size:.7rem;cursor:pointer;width:100%}
+.mapper-select:focus{outline:none;border-color:var(--accent)}
+.mapper-select option{background:#111e11}
+.apply-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mapping-note{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted)}
+
+/* SELECTION BAR */
+#selectionBar{display:none;background:rgba(255,240,122,.08);border:1px solid rgba(255,240,122,.3);border-radius:2px;padding:9px 16px;margin-bottom:16px;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--sel);display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#selectionBar.visible{display:flex}
+#selBarText{flex:1}
+#selClearBtn{cursor:pointer;opacity:.6;font-size:.65rem;white-space:nowrap}
+#selClearBtn:hover{opacity:1}
+
+/* TABS */
+.club-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:7px 16px;border-radius:2px;font-family:'DM Mono',monospace;font-size:.78rem;cursor:pointer;transition:all .2s;letter-spacing:.04em}
+.tab-btn:hover{border-color:var(--accent);color:var(--white)}
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:2px;padding:14px;position:relative;overflow:hidden;transition:border-color .2s}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);opacity:.4}
+.stat-card.highlighted{border-color:rgba(255,240,122,.5)}
+.stat-card.highlighted::before{background:var(--sel)}
+.stat-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}
+.stat-value{font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--flag);line-height:1}
+.stat-unit{font-size:.65rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:2px}
+.stat-sel-val{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--sel);margin-top:4px;display:none}
+.stat-card.highlighted .stat-sel-val{display:block}
+
+/* CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:680px){.chart-grid{grid-template-columns:1fr}}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:2px;padding:18px;position:relative}
+.chart-card.full{grid-column:1/-1}
+.chart-title{font-family:'DM Mono',monospace;font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px}
+canvas{display:block;width:100%!important;cursor:crosshair}
+
+/* HISTOGRAM */
+.hist-container{display:flex;align-items:flex-end;gap:2px;height:80px}
+.hist-bar{flex:1;border-radius:1px 1px 0 0;cursor:default;position:relative;min-width:3px;transition:opacity .1s}
+.hist-bar:hover{opacity:1!important}
+.hist-bar .tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#000;color:var(--white);font-size:.58rem;padding:2px 7px;white-space:nowrap;border-radius:2px;pointer-events:none;z-index:10;border:1px solid var(--border)}
+.hist-bar:hover .tip{display:block}
+.hist-labels{display:flex;justify-content:space-between;margin-top:5px;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted)}
+
+/* TABLE */
+.table-scroll{overflow:auto;max-height:300px}
+.shot-table{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:.7rem}
+.shot-table th{color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);letter-spacing:.07em;font-size:.6rem;position:sticky;top:0;background:#111e11;white-space:nowrap}
+.shot-table td{padding:6px 10px;border-bottom:1px solid rgba(109,179,109,.05);white-space:nowrap;transition:background .15s}
+.shot-table tr{cursor:pointer}
+.shot-table tr:hover td{background:rgba(109,179,109,.06)}
+.shot-table tr.selected td{background:rgba(255,240,122,.1)!important;color:var(--sel)}
+.shot-table tr.selected .pill{background:rgba(255,240,122,.2);color:var(--sel)}
+.pill{display:inline-block;padding:2px 8px;border-radius:1px;font-size:.62rem;font-weight:600;letter-spacing:.04em;background:rgba(109,179,109,.15);color:var(--accent)}
+.good{color:var(--accent)}.bad{color:var(--danger)}
+.notice{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);padding:20px 0;text-align:center}
+
+/* TRAJECTORY PANEL */
+#trajectoryPanel{background:var(--card);border:1px solid var(--border);border-radius:2px;margin-bottom:14px;overflow:hidden}
+.traj-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border)}
+.traj-header-left{font-family:'DM Mono',monospace;font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+.traj-header-left b{color:var(--accent)}
+.traj-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.traj-mode-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:2px;font-family:'DM Mono',monospace;font-size:.68rem;cursor:pointer;transition:all .15s;letter-spacing:.04em}
+.traj-mode-btn:hover{border-color:var(--accent);color:var(--accent)}
+.traj-mode-btn.active{background:rgba(109,179,109,.15);border-color:var(--accent);color:var(--accent)}
+.traj-toggle-all{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);cursor:pointer;user-select:none;padding:4px 10px;border:1px solid var(--border);border-radius:2px;transition:all .15s}
+.traj-toggle-all:hover{color:var(--white);border-color:var(--muted)}
+#trajectoryBody{padding:18px 18px 12px}
+.traj-views{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:680px){.traj-views{grid-template-columns:1fr}}
+.traj-view-card{position:relative}
+.traj-view-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.traj-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.traj-legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);cursor:pointer;user-select:none}
+.traj-legend-swatch{width:22px;height:3px;border-radius:2px;flex-shrink:0}
+.traj-hint{font-family:'DM Mono',monospace;font-size:.6rem;color:rgba(138,154,122,.4);text-align:center;margin-top:8px}
+canvas.traj-cv{cursor:crosshair}
+
+/* TOOLTIP */
+#shotTooltip{position:fixed;z-index:1000;pointer-events:none;display:none;background:rgba(10,20,10,.97);border:1px solid rgba(109,179,109,.35);border-radius:3px;padding:12px 14px;min-width:200px;max-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.tt-header{font-family:'DM Serif Display',serif;font-size:1rem;color:var(--flag);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.tt-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px}
+.tt-row{display:contents}
+.tt-key{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tt-val{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--white);padding:1px 0;text-align:right;white-space:nowrap}
+.tt-hint{font-family:'DM Mono',monospace;font-size:.58rem;color:rgba(138,154,122,.5);margin-top:8px;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- UPLOAD -->
+<div id="uploadScreen">
+  <div class="upload-logo">Shot Analytics</div>
+  <div class="upload-sub">Universal CSV Visualizer · v4</div>
+  <div id="dropZone">
+    <input type="file" id="fileInput" accept=".csv,.tsv,.txt">
+    <div class="drop-icon">⛳</div>
+    <div class="drop-title">Drop your CSV here</div>
+    <div class="drop-hint">
+      or click to browse<br><br>
+      Works with <b>GSPro · Trackman · FlightScope · Foresight</b><br>
+      or any CSV / TSV file<br><br>
+      Columns are auto-detected and fully remappable
+    </div>
+  </div>
+  <div id="parseError"></div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="shotTooltip">
+  <div class="tt-header" id="ttHeader">Shot #1</div>
+  <div class="tt-grid" id="ttGrid"></div>
+  <div class="tt-hint">click to select · esc to clear</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="wrap">
+    <header>
+      <div class="logo-area">
+        <h1 id="fileNameLabel">Analytics</h1>
+        <p id="fileSubLabel">CSV Shot Data · v4</p>
+      </div>
+      <div class="header-right">
+        <div class="shot-count"><span id="shotCountDisplay">0</span>rows</div>
+        <button class="btn-sm" onclick="resetApp()">↩ New File</button>
+      </div>
+    </header>
+
+    <div id="mappingPanel">
+      <div class="mapping-header" onclick="toggleMapping()">
+        <div class="mapping-header-left">Column Mapping — <b id="mappedCount">0</b> fields auto-detected</div>
+        <div class="mapping-toggle" id="mappingToggleLabel">▼ Adjust</div>
+      </div>
+      <div id="mappingBody">
+        <div class="mapping-info" id="mappingInfo"></div>
+        <div class="mapper-grid" id="mapperGrid"></div>
+        <div class="apply-row">
+          <button class="btn-sm primary" onclick="applyMapping()">Apply Mapping</button>
+          <span class="mapping-note">Changes take effect when you click Apply</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="selectionBar">
+      <span id="selBarText"></span>
+      <span id="selClearBtn" onclick="clearSelection()">✕ Clear selection</span>
+    </div>
+
+    <div class="club-tabs" id="clubTabs"></div>
+    <div class="stats-row" id="statsRow"></div>
+    <div class="chart-grid" id="chartGrid"></div>
+
+    <!-- TRAJECTORY PANEL -->
+    <div id="trajectoryPanel" style="display:none">
+      <div class="traj-header">
+        <div class="traj-header-left">Shot Trajectory — <b id="trajShotLabel">all shots</b></div>
+        <div class="traj-controls">
+          <button class="traj-mode-btn active" id="trajBtnSide" onclick="setTrajMode('side')">Side View</button>
+          <button class="traj-mode-btn" id="trajBtnOver" onclick="setTrajMode('overhead')">Overhead</button>
+          <button class="traj-mode-btn" id="trajBtnBoth" onclick="setTrajMode('both')">Both</button>
+          <span class="traj-toggle-all" id="trajToggleAll" onclick="toggleTrajAll()">Show All</span>
+        </div>
+      </div>
+      <div id="trajectoryBody">
+        <div class="traj-views" id="trajViews"></div>
+        <div class="traj-legend" id="trajLegend"></div>
+        <div class="traj-hint">Hover to highlight · Click to select · Ghost traces show all shots in current filter</div>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-title">Data Table <span id="tableSubtitle" style="font-size:.58rem;color:var(--muted)"></span></div>
+      <div class="table-scroll">
+        <table class="shot-table">
+          <thead id="shotTableHead"></thead>
+          <tbody id="shotTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────
+let rawData=[], csvCols=[], mappedData=[], mapping={}, activeClub='ALL', mappingOpen=false;
+let selectedIdx=null; // _idx of selected shot (null = none)
+let hoveredIdx=null;
+const PALETTE=['#6db36d','#5a8eb3','#e8c84a','#e07a5a','#a06db3','#5ab3a0','#b3875a','#b35a7a','#7ab35a','#5a6db3'];
+
+// Chart render functions registry: id -> fn() — so we can redraw all on selection change
+const chartRenderers=[];
+
+const KNOWN_FIELDS=[
+  {key:'Club',        label:'Club / Category',     unit:'',    aliases:['club','clubtype','clubname','type','category','iron','wood']},
+  {key:'Carry',       label:'Carry Distance',       unit:'yds', aliases:['carry','carrydist','carryyards','carrydistance','rawcarrygame','rawcarrylm','carryyd']},
+  {key:'TotalDist',   label:'Total Distance',       unit:'yds', aliases:['totaldistance','total','totaldist','totalyards','totalrange','totalyd']},
+  {key:'BallSpeed',   label:'Ball Speed',           unit:'mph', aliases:['ballspeed','ballspd','bspeed','ballvel','ballinitialspeed']},
+  {key:'ClubSpeed',   label:'Club Speed',           unit:'mph', aliases:['clubspeed','clubspd','cspeed','headspeed','clubheadspeed']},
+  {key:'SmashFactor', label:'Smash Factor',         unit:'',    aliases:['smashfactor','smash','sf','smashratio','smasheff']},
+  {key:'BackSpin',    label:'Backspin',              unit:'rpm', aliases:['backspin','bspin','topspin','rpmback','totalbackspin','backspinrpm']},
+  {key:'SideSpin',    label:'Sidespin',              unit:'rpm', aliases:['sidespin','sspin','rpmsideside','sidespinrpm']},
+  {key:'Offline',     label:'Offline / Lateral',    unit:'yds', aliases:['offline','lateral','side','leftright','deviation','lateraldist','offlinedist']},
+  {key:'HLA',         label:'Horiz. Launch Angle',  unit:'°',   aliases:['hla','horizontallaunchangle','horizlaunch','hlaunch','launchdirh','azimuth']},
+  {key:'VLA',         label:'Vert. Launch Angle',   unit:'°',   aliases:['vla','verticallaunchangle','vertlaunch','vlaunch','launchangle','launchanglev','launchanglevert']},
+  {key:'PeakHeight',  label:'Peak Height',          unit:'ft',  aliases:['peakheight','apexheight','apex','maxheight','peakht','height','apex_ft']},
+  {key:'SpinAxis',    label:'Spin Axis',             unit:'°',   aliases:['spinaxis','axis','rawspinaxis','spinaxisangle']},
+  {key:'AoA',         label:'Angle of Attack',      unit:'°',   aliases:['aoa','angleofattack','attackangle','attack']},
+  {key:'FaceAngle',   label:'Face Angle',           unit:'°',   aliases:['faceangle','facetotarget','facetarget','face','faceatt']},
+  {key:'ClubPath',    label:'Club Path',            unit:'°',   aliases:['clubpath','path','swingpath','swingtrace']},
+  {key:'Descent',     label:'Descent Angle',        unit:'°',   aliases:['descent','decent','landingangle','descentangle','landangle']},
+  {key:'DynLoft',     label:'Dynamic Loft',         unit:'°',   aliases:['dynamicloft','dynloft','dloft','effectiveloft']},
+];
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────────
+const dz=document.getElementById('dropZone'), fi=document.getElementById('fileInput');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])});
+fi.addEventListener('change',()=>{if(fi.files[0])loadFile(fi.files[0])});
+function loadFile(f){const r=new FileReader();r.onload=e=>parseCSV(e.target.result,f.name);r.readAsText(f);}
+
+function parseCSV(text,filename){
+  const errEl=document.getElementById('parseError');errEl.style.display='none';
+  const firstLine=text.split('\n')[0];
+  const delim=(firstLine.split('\t').length>firstLine.split(',').length)?'\t':',';
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){errEl.textContent='File has fewer than 2 lines.';errEl.style.display='block';return;}
+  csvCols=parseLine(lines[0],delim);
+  if(csvCols.length<2){errEl.textContent='Could not parse columns — is this a valid CSV?';errEl.style.display='block';return;}
+  rawData=[];
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const vals=parseLine(lines[i],delim);
+    const row={};
+    csvCols.forEach((col,j)=>{row[col]=(vals[j]!==undefined?vals[j]:'').trim()});
+    rawData.push(row);
+  }
+  document.getElementById('fileNameLabel').textContent=filename.replace(/\.[^.]+$/,'');
+  document.getElementById('fileSubLabel').textContent=`${rawData.length} rows · ${csvCols.length} columns · v4`;
+  document.getElementById('uploadScreen').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  autoMapColumns();buildMapper();applyMapping();
+}
+function parseLine(line,delim){
+  const r=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){inQ=!inQ;}else if(c===delim&&!inQ){r.push(cur.trim());cur='';}else cur+=c;}
+  r.push(cur.trim());return r;
+}
+
+// ── AUTO-MAP ──────────────────────────────────────────────────────────────
+function autoMapColumns(){
+  mapping={};
+  const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
+  const used=new Set();
+  KNOWN_FIELDS.forEach(field=>{
+    let m=csvCols.find(col=>!used.has(col)&&field.aliases.some(a=>norm(col)===a));
+    if(!m)m=csvCols.find(col=>!used.has(col)&&field.aliases.some(a=>norm(col).startsWith(a)||a.startsWith(norm(col))));
+    if(!m)m=csvCols.find(col=>!used.has(col)&&field.aliases.some(a=>norm(col).includes(a)||a.includes(norm(col))));
+    mapping[field.key]=m||'__none__';
+    if(m)used.add(m);
+  });
+}
+
+// ── MAPPING PANEL ─────────────────────────────────────────────────────────
+function toggleMapping(){
+  mappingOpen=!mappingOpen;
+  document.getElementById('mappingBody').style.display=mappingOpen?'block':'none';
+  document.getElementById('mappingToggleLabel').textContent=mappingOpen?'▲ Hide':'▼ Adjust';
+}
+function buildMapper(){
+  const grid=document.getElementById('mapperGrid');grid.innerHTML='';
+  const mc=KNOWN_FIELDS.filter(f=>mapping[f.key]!=='__none__').length;
+  document.getElementById('mappedCount').textContent=mc;
+  const mappedCols=new Set(Object.values(mapping).filter(v=>v&&v!=='__none__'));
+  const unmapped=csvCols.filter(c=>!mappedCols.has(c));
+  document.getElementById('mappingInfo').innerHTML=
+    `Detected <b style="color:var(--white)">${csvCols.length}</b> columns — auto-mapped <b style="color:var(--accent)">${mc}</b> known fields.`+
+    (unmapped.length?`<br>Unrecognised columns: <span style="color:var(--flag)">${unmapped.slice(0,12).join(', ')}${unmapped.length>12?'…':''}</span>`:'');
+  KNOWN_FIELDS.forEach(field=>{
+    const div=document.createElement('div');div.className='mapper-row';
+    div.innerHTML=`<div class="mapper-label"><b>${field.label}</b>${field.unit?' · '+field.unit:''}</div>
+      <select class="mapper-select" id="map_${field.key}">
+        <option value="__none__">— not mapped —</option>
+        ${csvCols.map(c=>`<option value="${c}"${mapping[field.key]===c?' selected':''}>${c}</option>`).join('')}
+      </select>`;
+    grid.appendChild(div);
+  });
+}
+function applyMapping(){
+  KNOWN_FIELDS.forEach(f=>{const s=document.getElementById(`map_${f.key}`);if(s)mapping[f.key]=s.value;});
+  mappedData=rawData.map((row,i)=>{
+    const out={_idx:i+1,_raw:row};
+    KNOWN_FIELDS.forEach(f=>{
+      if(mapping[f.key]&&mapping[f.key]!=='__none__'){
+        const raw=row[mapping[f.key]]||'';
+        if(f.key==='Club'){out[f.key]=raw.toString().trim();}
+        else{const m=raw.toString().match(/^[+-]?[\d]*\.?[\d]+/);const cleaned=m?m[0]:'';const num=parseFloat(cleaned);out[f.key]=isNaN(num)?null:num;}
+      }else{out[f.key]=f.key==='Club'?'':null;}
+    });
+    return out;
+  }).filter(d=>KNOWN_FIELDS.some(f=>f.key!=='Club'&&d[f.key]!==null));
+  selectedIdx=null;hoveredIdx=null;
+  activeClub='ALL';
+  render();
+}
+
+// ── DATA HELPERS ──────────────────────────────────────────────────────────
+function getFiltered(){return activeClub==='ALL'?mappedData:mappedData.filter(d=>d.Club===activeClub);}
+function getClubs(){return[...new Set(mappedData.map(d=>d.Club).filter(c=>c&&c.trim()))].sort();}
+function colVals(rows,key){return rows.map(d=>d[key]).filter(v=>v!==null&&isFinite(v));}
+function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;}
+function stdDev(a){if(a.length<2)return 0;const m=avg(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length);}
+
+// ── SELECTION ─────────────────────────────────────────────────────────────
+function selectShot(idx){
+  selectedIdx=(selectedIdx===idx)?null:idx;
+  updateSelectionBar();
+  redrawAllCharts();
+  buildStats();
+  highlightTableRow();
+}
+function clearSelection(){selectedIdx=null;updateSelectionBar();redrawAllCharts();buildStats();highlightTableRow();}
+function updateSelectionBar(){
+  const bar=document.getElementById('selectionBar');
+  if(selectedIdx===null){bar.classList.remove('visible');return;}
+  const d=mappedData.find(r=>r._idx===selectedIdx);
+  if(!d){bar.classList.remove('visible');return;}
+  bar.classList.add('visible');
+  const club=d.Club?` · ${d.Club}`:'';
+  const carry=d.Carry!==null?` · Carry ${d.Carry.toFixed(1)} yds`:'';
+  document.getElementById('selBarText').textContent=`Shot #${selectedIdx}${club}${carry} — highlighted across all charts`;
+}
+function highlightTableRow(){
+  document.querySelectorAll('#shotTableBody tr').forEach(tr=>{
+    const idx=parseInt(tr.dataset.idx);
+    tr.classList.toggle('selected',idx===selectedIdx);
+    if(idx===selectedIdx)tr.scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')clearSelection();});
+
+// ── TOOLTIP ───────────────────────────────────────────────────────────────
+const ttEl=document.getElementById('shotTooltip');
+function showTooltip(d,mouseX,mouseY){
+  if(!d)return;
+  document.getElementById('ttHeader').textContent=`Shot #${d._idx}${d.Club?' · '+d.Club:''}`;
+  const grid=document.getElementById('ttGrid');grid.innerHTML='';
+  // Show all raw CSV columns
+  csvCols.forEach(col=>{
+    const val=d._raw[col];
+    if(val===undefined||val===null||val==='')return;
+    const kr=document.createElement('div');kr.className='tt-key';kr.textContent=col;
+    const vr=document.createElement('div');vr.className='tt-val';vr.textContent=val;
+    grid.appendChild(kr);grid.appendChild(vr);
+  });
+  ttEl.style.display='block';
+  positionTooltip(mouseX,mouseY);
+}
+function positionTooltip(mx,my){
+  const W=ttEl.offsetWidth||240,H=ttEl.offsetHeight||200;
+  const vw=window.innerWidth,vh=window.innerHeight;
+  let x=mx+16,y=my-20;
+  if(x+W>vw-8)x=mx-W-16;
+  if(y+H>vh-8)y=vh-H-8;
+  if(y<8)y=8;
+  ttEl.style.left=x+'px';ttEl.style.top=y+'px';
+}
+function hideTooltip(){ttEl.style.display='none';}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render(){buildTabs();buildStats();buildCharts();buildTrajectory();buildTable();document.getElementById('shotCountDisplay').textContent=getFiltered().length;}
+function redrawAllCharts(){chartRenderers.forEach(fn=>fn());redrawTrajectory();}
+
+function buildTabs(){
+  const tabs=document.getElementById('clubTabs');tabs.innerHTML='';
+  const clubs=getClubs();if(!clubs.length)return;
+  ['ALL',...clubs].forEach(club=>{
+    const btn=document.createElement('button');
+    btn.className='tab-btn'+(club===activeClub?' active':'');
+    const cnt=club==='ALL'?mappedData.length:mappedData.filter(d=>d.Club===club).length;
+    btn.textContent=club==='ALL'?`All (${cnt})`:`${club} (${cnt})`;
+    btn.addEventListener('click',()=>{
+      activeClub=club;selectedIdx=null;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      buildStats();buildCharts();buildTrajectory();buildTable();
+      document.getElementById('shotCountDisplay').textContent=getFiltered().length;
+      updateSelectionBar();
+    });
+    tabs.appendChild(btn);
+  });
+}
+
+function buildStats(){
+  const fd=getFiltered();
+  const row=document.getElementById('statsRow');row.innerHTML='';
+  const sel=selectedIdx!==null?mappedData.find(r=>r._idx===selectedIdx):null;
+  const defs=[
+    {key:'Carry',       label:'Avg Carry',        fn:v=>avg(v).toFixed(1),               unit:'yds'},
+    {key:'Carry',       label:'Max Carry',         fn:v=>Math.max(...v).toFixed(1),        unit:'yds'},
+    {key:'TotalDist',   label:'Avg Total',         fn:v=>avg(v).toFixed(1),               unit:'yds'},
+    {key:'BallSpeed',   label:'Avg Ball Spd',      fn:v=>avg(v).toFixed(1),               unit:'mph'},
+    {key:'ClubSpeed',   label:'Avg Club Spd',      fn:v=>avg(v).toFixed(1),               unit:'mph'},
+    {key:'SmashFactor', label:'Avg Smash',         fn:v=>avg(v).toFixed(3),               unit:''},
+    {key:'Carry',       label:'Carry StdDev',      fn:v=>stdDev(v).toFixed(1),            unit:'yds'},
+    {key:'Offline',     label:'Avg |Offline|',     fn:v=>avg(v.map(Math.abs)).toFixed(1), unit:'yds'},
+    {key:'BackSpin',    label:'Avg Backspin',       fn:v=>avg(v).toFixed(0),               unit:'rpm'},
+    {key:'VLA',         label:'Avg Launch Ang',    fn:v=>avg(v).toFixed(1),               unit:'°'},
+    {key:'PeakHeight',  label:'Avg Peak Ht',       fn:v=>avg(v).toFixed(1),               unit:'ft'},
+    {key:'AoA',         label:'Avg AoA',           fn:v=>avg(v).toFixed(1),               unit:'°'},
+  ];
+  let shown=0;
+  defs.forEach(d=>{
+    if(shown>=6||mapping[d.key]==='__none__')return;
+    const vals=colVals(fd,d.key).filter(v=>Math.abs(v)<1e7);
+    if(!vals.length)return;
+    shown++;
+    const selVal=(sel&&sel[d.key]!==null&&isFinite(sel[d.key]))?sel[d.key]:null;
+    const dec=d.key==='SmashFactor'?3:1;
+    row.innerHTML+=`<div class="stat-card${sel?' highlighted':''}">
+      <div class="stat-label">${d.label}</div>
+      <div class="stat-value">${d.fn(vals)}<span class="stat-unit">${d.unit}</span></div>
+      <div class="stat-sel-val">Selected: ${selVal!==null?selVal.toFixed(dec)+' '+d.unit:'—'}</div>
+    </div>`;
+  });
+  if(!shown){
+    KNOWN_FIELDS.filter(f=>f.key!=='Club'&&mapping[f.key]!=='__none__').slice(0,6).forEach(f=>{
+      const vals=colVals(fd,f.key).filter(v=>Math.abs(v)<1e7);
+      if(!vals.length)return;
+      const selVal=(sel&&sel[f.key]!==null)?sel[f.key]:null;
+      row.innerHTML+=`<div class="stat-card${sel?' highlighted':''}">
+        <div class="stat-label">Avg ${f.label}</div>
+        <div class="stat-value">${avg(vals).toFixed(1)}<span class="stat-unit">${f.unit}</span></div>
+        <div class="stat-sel-val">Selected: ${selVal!==null?selVal.toFixed(1)+' '+f.unit:'—'}</div>
+      </div>`;
+    });
+  }
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────
+function buildCharts(){
+  const grid=document.getElementById('chartGrid');grid.innerHTML='';
+  chartRenderers.length=0;
+  const fd=getFiltered();
+  const clubs=getClubs();
+  const ccm={};clubs.forEach((c,i)=>{ccm[c]=PALETTE[i%PALETTE.length]});
+  const hasClub=clubs.length>0;
+  const avail=KNOWN_FIELDS.filter(f=>f.key!=='Club'&&mapping[f.key]!=='__none__'&&colVals(fd,f.key).length>1);
+  if(!avail.length){
+    grid.innerHTML='<div class="chart-card full"><div class="notice">No numeric columns detected. Open Column Mapping and click Apply.</div></div>';
+    return;
+  }
+  const get=key=>avail.find(f=>f.key===key);
+  const primary=get('Carry')||get('TotalDist')||avail[0];
+  addHist(grid,fd,primary,ccm,hasClub);
+  const spd=get('BallSpeed')||get('ClubSpeed')||avail.find(f=>f!==primary);
+  const dist=get('Carry')||get('TotalDist')||avail[0];
+  if(spd&&dist&&spd.key!==dist.key)addScatter(grid,fd,spd,dist,ccm,hasClub);
+  if(get('Carry')&&get('Offline'))addDispersion(grid,fd,ccm,hasClub);
+  if(get('SmashFactor'))addHist(grid,fd,get('SmashFactor'),ccm,hasClub);
+  if(get('BackSpin')&&get('Carry'))addScatter(grid,fd,get('BackSpin'),get('Carry'),ccm,hasClub);
+  const extras=avail.filter(f=>!['Carry','TotalDist','BallSpeed','ClubSpeed','SmashFactor','BackSpin','Offline'].includes(f.key));
+  if(extras.length>=1&&get('Carry'))addScatter(grid,fd,extras[0],get('Carry'),ccm,hasClub);
+}
+
+// ── HISTOGRAM (no per-point interaction, but highlights selected bar) ──────
+function addHist(grid,fd,field,ccm,hasClub){
+  const id=`hist_${field.key}`;
+  const div=document.createElement('div');div.className='chart-card';
+  div.innerHTML=`<div class="chart-title">${field.label} Distribution${field.unit?' ('+field.unit+')':''}</div><div id="${id}"></div>`;
+  grid.appendChild(div);
+  const color=(hasClub&&activeClub!=='ALL'&&ccm[activeClub])||PALETTE[0];
+  const drawFn=()=>drawHistogram(id,fd,field,color);
+  chartRenderers.push(drawFn);
+  drawFn();
+}
+
+function drawHistogram(id,fd,field,color,bins=14){
+  const el=document.getElementById(id);if(!el)return;
+  const vals=colVals(fd,field.key);
+  if(!vals.length)return;
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  if(mn===mx){el.innerHTML=`<div class="notice">All values: ${mn}</div>`;return;}
+  const bw=(mx-mn)/bins;
+  // Find which bucket the selected shot falls in
+  const selD=selectedIdx!==null?fd.find(d=>d._idx===selectedIdx):null;
+  const selVal=selD?selD[field.key]:null;
+  const selBucket=selVal!==null?Math.min(bins-1,Math.floor((selVal-mn)/bw)):null;
+  const buckets=Array(bins).fill(null).map(()=>({cnt:0,idxs:[]}));
+  fd.forEach(d=>{
+    const v=d[field.key];if(v===null||!isFinite(v))return;
+    let b=Math.floor((v-mn)/bw);if(b>=bins)b=bins-1;
+    buckets[b].cnt++;buckets[b].idxs.push(d._idx);
+  });
+  const mb=Math.max(...buckets.map(b=>b.cnt));
+  el.innerHTML=`<div class="hist-container">${
+    buckets.map((b,i)=>{
+      const pct=mb?(b.cnt/mb*100):0,lo=mn+i*bw,hi=lo+bw;
+      const isSel=i===selBucket;
+      const bg=isSel?'var(--sel)':color;
+      const op=isSel?1:.45+pct/200;
+      return`<div class="hist-bar" style="height:${Math.max(pct,.5)}%;background:${bg};opacity:${op};${isSel?'box-shadow:0 0 6px var(--sel)':''}"><div class="tip">${lo.toFixed(1)}–${hi.toFixed(1)}<br>${b.cnt} shots</div></div>`;
+    }).join('')
+  }</div><div class="hist-labels"><span>${mn.toFixed(1)}</span><span>${((mn+mx)/2).toFixed(1)}</span><span>${mx.toFixed(1)}</span></div>`;
+}
+
+// ── SCATTER ────────────────────────────────────────────────────────────────
+function addScatter(grid,fd,xf,yf,ccm,hasClub){
+  const id=`sc_${xf.key}_${yf.key}`;
+  const div=document.createElement('div');div.className='chart-card';
+  div.innerHTML=`<div class="chart-title">${xf.label} vs. ${yf.label}</div><canvas id="${id}" height="180"></canvas>`;
+  grid.appendChild(div);
+  const drawFn=()=>drawScatter(id,fd,xf,yf,ccm,hasClub);
+  chartRenderers.push(drawFn);
+  requestAnimationFrame(drawFn);
+  // After first draw, attach interaction
+  requestAnimationFrame(()=>attachCanvasEvents(id,fd,xf,yf,ccm,hasClub,'scatter'));
+}
+
+function drawScatter(id,fd,xf,yf,ccm,hasClub){
+  const cv=document.getElementById(id);if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=Math.max(cv.parentElement.clientWidth-36,100),H=180;
+  if(cv.width!==W){cv.width=W;} cv.height=H;
+  ctx.clearRect(0,0,W,H);
+  const pts=fd.filter(d=>d[xf.key]!==null&&d[yf.key]!==null&&isFinite(d[xf.key])&&isFinite(d[yf.key]))
+    .map(d=>({x:d[xf.key],y:d[yf.key],club:d.Club,idx:d._idx}));
+  if(pts.length<2){ctx.fillStyle='rgba(138,154,122,.5)';ctx.font='11px DM Mono,monospace';ctx.textAlign='center';ctx.fillText('Not enough data',W/2,H/2);return;}
+  const pad={l:44,r:14,t:14,b:28},pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const xMin=Math.min(...xs),xMax=Math.max(...xs),yMin=Math.min(...ys)*.97,yMax=Math.max(...ys)*1.03;
+  const tx=v=>pad.l+((v-xMin)/(xMax-xMin||1))*pw;
+  const ty=v=>pad.t+(1-(v-yMin)/(yMax-yMin||1))*ph;
+  // Store for hit testing
+  cv._pts=pts;cv._tx=tx;cv._ty=ty;cv._pad=pad;cv._pw=pw;cv._ph=ph;
+  // Grid
+  ctx.strokeStyle='rgba(109,179,109,.07)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=pad.t+i*ph/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke();}
+  // Trend line
+  const n=pts.length,sX=xs.reduce((a,b)=>a+b,0),sY=ys.reduce((a,b)=>a+b,0);
+  const sXY=pts.reduce((s,p)=>s+p.x*p.y,0),sX2=xs.reduce((s,x)=>s+x*x,0);
+  const sl=(n*sXY-sX*sY)/(n*sX2-sX*sX||1),ic=(sY-sl*sX)/n;
+  ctx.beginPath();ctx.strokeStyle='rgba(232,200,74,.3)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+  ctx.moveTo(tx(xMin),ty(sl*xMin+ic));ctx.lineTo(tx(xMax),ty(sl*xMax+ic));
+  ctx.stroke();ctx.setLineDash([]);
+  // Dots — draw normal first, then selected/hovered on top
+  pts.forEach(p=>{
+    if(p.idx===selectedIdx||p.idx===hoveredIdx)return;
+    const col=(hasClub&&p.club&&ccm[p.club])?ccm[p.club]:PALETTE[0];
+    const dimmed=selectedIdx!==null;
+    ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),3.5,0,Math.PI*2);
+    ctx.fillStyle=col+(dimmed?'55':'bb');ctx.fill();
+    ctx.strokeStyle=col+(dimmed?'33':'88');ctx.lineWidth=.5;ctx.stroke();
+  });
+  // Hovered
+  if(hoveredIdx!==null){
+    const p=pts.find(p=>p.idx===hoveredIdx);
+    if(p){
+      const col=(hasClub&&p.club&&ccm[p.club])?ccm[p.club]:PALETTE[0];
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),5.5,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+  // Selected
+  if(selectedIdx!==null){
+    const p=pts.find(p=>p.idx===selectedIdx);
+    if(p){
+      // Glow
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),10,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,240,122,.15)';ctx.fill();
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),6,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+  // Ticks
+  ctx.fillStyle='rgba(138,154,122,.7)';ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='right';
+  for(let i=0;i<=3;i++){const v=yMin+(yMax-yMin)*i/3;ctx.fillText(v.toFixed(1),pad.l-4,ty(v)+3);}
+  ctx.textAlign='center';
+  for(let i=0;i<=3;i++){const v=xMin+(xMax-xMin)*i/3;ctx.fillText(v.toFixed(1),tx(v),pad.t+ph+14);}
+  ctx.fillStyle='rgba(138,154,122,.55)';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+  ctx.fillText(xf.label+(xf.unit?` (${xf.unit})`:''),(pad.l+pad.l+pw)/2,H-1);
+}
+
+// ── DISPERSION ─────────────────────────────────────────────────────────────
+function addDispersion(grid,fd,ccm,hasClub){
+  const div=document.createElement('div');div.className='chart-card full';
+  div.innerHTML=`<div class="chart-title">Shot Dispersion — Offline vs. Carry</div><canvas id="dispCv" height="520"></canvas>`;
+  grid.appendChild(div);
+  const drawFn=()=>drawDisp(fd,ccm,hasClub);
+  chartRenderers.push(drawFn);
+  requestAnimationFrame(drawFn);
+  requestAnimationFrame(()=>attachCanvasEvents('dispCv',fd,null,null,ccm,hasClub,'disp'));
+}
+
+function drawDisp(fd,ccm,hasClub){
+  const cv=document.getElementById('dispCv');if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=Math.max(cv.parentElement.clientWidth-36,100),H=520;
+  if(cv.width!==W)cv.width=W; cv.height=H;ctx.clearRect(0,0,W,H);
+  const pts=fd.filter(d=>d.Carry>5&&d.Offline!==null&&isFinite(d.Offline))
+    .map(d=>({x:d.Offline,y:d.Carry,club:d.Club,idx:d._idx}));
+  if(pts.length<2)return;
+  const pad={l:44,r:20,t:14,b:28},pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const xAbs=Math.max(Math.abs(Math.min(...xs)),Math.abs(Math.max(...xs)),15)*1.2;
+  const yMin=Math.min(...ys)*.95,yMax=Math.max(...ys)*1.05;
+  const tx=v=>pad.l+((v+xAbs)/(2*xAbs))*pw;
+  const ty=v=>pad.t+(1-(v-yMin)/(yMax-yMin||1))*ph;
+  cv._pts=pts;cv._tx=tx;cv._ty=ty;cv._pad=pad;cv._pw=pw;cv._ph=ph;
+  // Fairway
+  ctx.fillStyle='rgba(45,74,45,.2)';ctx.fillRect(tx(-15),pad.t,tx(15)-tx(-15),ph);
+  // Grid
+  ctx.strokeStyle='rgba(109,179,109,.07)';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=pad.t+i*ph/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke();}
+  // Center
+  ctx.strokeStyle='rgba(109,179,109,.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(tx(0),pad.t);ctx.lineTo(tx(0),pad.t+ph);ctx.stroke();ctx.setLineDash([]);
+  // Normal dots
+  pts.forEach(p=>{
+    if(p.idx===selectedIdx||p.idx===hoveredIdx)return;
+    const col=(hasClub&&p.club&&ccm[p.club])?ccm[p.club]:PALETTE[0];
+    const dimmed=selectedIdx!==null;
+    ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),4,0,Math.PI*2);
+    ctx.fillStyle=col+(dimmed?'44':'bb');ctx.fill();
+    ctx.strokeStyle=col+(dimmed?'22':'77');ctx.lineWidth=.6;ctx.stroke();
+  });
+  // Hovered
+  if(hoveredIdx!==null){
+    const p=pts.find(p=>p.idx===hoveredIdx);
+    if(p){
+      const col=(hasClub&&p.club&&ccm[p.club])?ccm[p.club]:PALETTE[0];
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),6,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+  // Selected
+  if(selectedIdx!==null){
+    const p=pts.find(p=>p.idx===selectedIdx);
+    if(p){
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),11,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,240,122,.15)';ctx.fill();
+      ctx.beginPath();ctx.arc(tx(p.x),ty(p.y),6.5,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();
+      ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+  // Ticks
+  ctx.fillStyle='rgba(138,154,122,.7)';ctx.font='9px DM Mono,monospace';
+  ctx.textAlign='right';
+  for(let i=0;i<=4;i++){const v=yMin+(yMax-yMin)*i/4;ctx.fillText(v.toFixed(0),pad.l-4,ty(v)+3);}
+  ctx.textAlign='center';
+  const step=xAbs>60?30:xAbs>30?20:10;
+  for(let v=-Math.ceil(xAbs/step)*step;v<=xAbs;v+=step)ctx.fillText(v,tx(v),pad.t+ph+14);
+  ctx.fillStyle='rgba(138,154,122,.55)';ctx.fillText('← LEFT  ·  Offline (yds)  ·  RIGHT →',pad.l+pw/2,H-1);
+  if(hasClub&&activeClub==='ALL'&&Object.keys(ccm).length>1){
+    let lx=pad.l+pw;
+    Object.entries(ccm).slice().reverse().forEach(([c,col])=>{
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(lx-4,pad.t+10,4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(240,240,232,.75)';ctx.font='9px DM Mono,monospace';ctx.textAlign='right';
+      ctx.fillText(c,lx-12,pad.t+14);lx-=Math.max(c.length*7+18,50);
+    });
+  }
+}
+
+// ── CANVAS HIT TESTING & EVENTS ────────────────────────────────────────────
+function hitTest(cv,mx,my){
+  if(!cv._pts)return null;
+  const rect=cv.getBoundingClientRect();
+  const x=mx-rect.left,y=my-rect.top;
+  const dpr=window.devicePixelRatio||1;
+  const cx=x*(cv.width/(rect.width||1));
+  const cy=y*(cv.height/(rect.height||1));
+  let best=null,bestDist=Infinity;
+  cv._pts.forEach(p=>{
+    const px=cv._tx(p.x),py=cv._ty(p.y);
+    const d=Math.hypot(cx-px,cy-py);
+    if(d<best_dist_thresh()&&d<bestDist){bestDist=d;best=p;}
+  });
+  return best;
+}
+function best_dist_thresh(){return 14;}
+
+function attachCanvasEvents(id,fd,xf,yf,ccm,hasClub,type){
+  const cv=document.getElementById(id);if(!cv)return;
+  cv.addEventListener('mousemove',e=>{
+    const p=hitTest(cv,e.clientX,e.clientY);
+    const newHov=p?p.idx:null;
+    if(newHov!==hoveredIdx){
+      hoveredIdx=newHov;
+      redrawAllCharts();
+    }
+    if(p){
+      const d=fd.find(d=>d._idx===p.idx);
+      if(d)showTooltip(d,e.clientX,e.clientY);
+    }else{
+      hideTooltip();
+    }
+  });
+  cv.addEventListener('mouseleave',()=>{
+    if(hoveredIdx!==null){hoveredIdx=null;redrawAllCharts();}
+    hideTooltip();
+  });
+  cv.addEventListener('click',e=>{
+    const p=hitTest(cv,e.clientX,e.clientY);
+    if(p){selectShot(p.idx);highlightTableRow();}
+    else{clearSelection();}
+  });
+  // Update tooltip position on move even after click
+  cv.addEventListener('mousemove',e=>{
+    if(ttEl.style.display==='block')positionTooltip(e.clientX,e.clientY);
+  });
+}
+
+// ── TABLE ──────────────────────────────────────────────────────────────────
+function buildTable(){
+  const fd=getFiltered();
+  const head=document.getElementById('shotTableHead'),body=document.getElementById('shotTableBody');
+  const df=KNOWN_FIELDS.filter(f=>mapping[f.key]!=='__none__'&&fd.some(d=>f.key==='Club'?d[f.key]:d[f.key]!==null));
+  const mc=new Set(KNOWN_FIELDS.map(f=>mapping[f.key]).filter(v=>v&&v!=='__none__'));
+  const extra=csvCols.filter(c=>!mc.has(c)).slice(0,8);
+  head.innerHTML='<tr><th>#</th>'+df.map(f=>`<th>${f.label}${f.unit?' ('+f.unit+')':''}</th>`).join('')+extra.map(c=>`<th style="color:rgba(138,154,122,.6)">${c}</th>`).join('')+'</tr>';
+  document.getElementById('tableSubtitle').textContent=fd.length>300?`(showing first 300 of ${fd.length})`:'';
+  body.innerHTML='';
+  fd.slice(0,300).forEach((d,i)=>{
+    const isSel=d._idx===selectedIdx;
+    const cells=df.map(f=>{
+      if(f.key==='Club')return`<td><span class="pill">${d.Club||'—'}</span></td>`;
+      const v=d[f.key];if(v===null)return`<td style="color:var(--muted)">—</td>`;
+      let cls='';
+      if(!isSel){if(f.key==='SmashFactor')cls=v>1.48?'good':v<1.38?'bad':'';if(f.key==='Offline')cls=Math.abs(v)<10?'good':Math.abs(v)>30?'bad':'';}
+      const dec=f.key==='SmashFactor'?3:['HLA','VLA','AoA','FaceAngle','ClubPath','DynLoft'].includes(f.key)?2:1;
+      const disp=(f.key==='Offline'&&v>0)?`+${v.toFixed(dec)}`:v.toFixed(dec);
+      return`<td class="${cls}">${disp}</td>`;
+    }).join('');
+    const ex=extra.map(c=>`<td style="color:var(--muted)">${d._raw[c]??'—'}</td>`).join('');
+    const tr=document.createElement('tr');
+    tr.dataset.idx=d._idx;
+    if(isSel)tr.classList.add('selected');
+    tr.innerHTML=`<td style="color:var(--muted)">${i+1}</td>${cells}${ex}`;
+    tr.addEventListener('click',()=>{selectShot(d._idx);});
+    body.appendChild(tr);
+  });
+}
+
+// ── TRAJECTORY ────────────────────────────────────────────────────────────
+let trajMode='side';   // 'side' | 'overhead' | 'both'
+let trajShowAll=true;
+
+function setTrajMode(m){
+  trajMode=m;
+  document.getElementById('trajBtnSide').classList.toggle('active',m==='side');
+  document.getElementById('trajBtnOver').classList.toggle('active',m==='overhead');
+  document.getElementById('trajBtnBoth').classList.toggle('active',m==='both');
+  buildTrajectory();
+}
+
+function toggleTrajAll(){
+  trajShowAll=!trajShowAll;
+  const btn=document.getElementById('trajToggleAll');
+  if(btn)btn.textContent=trajShowAll?'Show All':'Hide All';
+  buildTrajectory();
+}
+
+function buildTrajectory(){
+  const fd=getFiltered();
+  const clubs=getClubs();
+  const ccm={};clubs.forEach((c,i)=>{ccm[c]=PALETTE[i%PALETTE.length]});
+  const hasClub=clubs.length>0;
+
+  // Need at least Carry to show anything
+  const hasCarry=mapping['Carry']&&mapping['Carry']!=='__none__';
+  const hasPeak=mapping['PeakHeight']&&mapping['PeakHeight']!=='__none__';
+  const hasOffline=mapping['Offline']&&mapping['Offline']!=='__none__';
+  const hasVLA=mapping['VLA']&&mapping['VLA']!=='__none__';
+
+  const panel=document.getElementById('trajectoryPanel');
+  if(!hasCarry){panel.style.display='none';return;}
+  panel.style.display='block';
+
+  // Update shot label
+  const selD=selectedIdx!==null?mappedData.find(r=>r._idx===selectedIdx):null;
+  const trajLabel=document.getElementById('trajShotLabel');
+  trajLabel.textContent=selD?`Shot #${selectedIdx}${selD.Club?' · '+selD.Club:''}`:'all shots';
+
+  // Build views
+  const views=document.getElementById('trajViews');
+  views.innerHTML='';
+  const showSide=(trajMode==='side'||trajMode==='both');
+  const showOver=(trajMode==='overhead'||trajMode==='both');
+  views.style.gridTemplateColumns=(trajMode==='both')?'1fr 1fr':'1fr';
+
+  if(showSide){
+    const div=document.createElement('div');div.className='traj-view-card';
+    div.innerHTML=`<div class="traj-view-label">Side Profile — Height vs. Distance</div><canvas id="trajSideCv" class="traj-cv" height="220"></canvas>`;
+    views.appendChild(div);
+  }
+  if(showOver){
+    const div=document.createElement('div');div.className='traj-view-card';
+    div.innerHTML=`<div class="traj-view-label">Overhead — Line & Landing Position</div><canvas id="trajOverCv" class="traj-cv" height="480"></canvas>`;
+    views.appendChild(div);
+  }
+
+  // Build legend
+  const leg=document.getElementById('trajLegend');leg.innerHTML='';
+  if(hasClub&&clubs.length>1){
+    clubs.forEach(c=>{
+      const item=document.createElement('div');item.className='traj-legend-item';
+      item.innerHTML=`<div class="traj-legend-swatch" style="background:${ccm[c]}"></div>${c}`;
+      leg.appendChild(item);
+    });
+  }
+
+  requestAnimationFrame(()=>{
+    if(showSide)drawTrajSide(fd,ccm,hasClub,hasPeak,hasVLA);
+    if(showOver)drawTrajOver(fd,ccm,hasClub,hasOffline);
+    if(showSide)attachTrajEvents('trajSideCv',fd,ccm,hasClub,'side');
+    if(showOver)attachTrajEvents('trajOverCv',fd,ccm,hasClub,'overhead');
+  });
+}
+
+// Build a smooth parabolic arc for a shot
+// Uses: carry (yds), peakHeight (ft->yds), VLA, descent
+// Returns array of {x,y} points in yards
+function buildArc(carry, peakYds, vla, descent){
+  const pts=[];
+  const N=60;
+  // We model as a skewed parabola: rises steeply, descends at descent angle
+  // Use two cubic bezier segments: tee→apex, apex→landing
+  // Apex x position: roughly carry * (vla/(vla+descent)) if we have angles, else 40% of carry
+  const vlaDeg=vla||12, desDeg=descent||Math.abs(vlaDeg)*1.4;
+  const apexX=carry*(vlaDeg/(vlaDeg+desDeg));
+  const apexY=peakYds;
+  // Segment 1: tee (0,0) → apex (apexX, apexY)
+  // Control points: lift off at VLA angle, flatten at apex
+  const cp1x=apexX*0.35, cp1y=apexX*Math.tan(vlaDeg*Math.PI/180)*0.7;
+  const cp2x=apexX*0.85, cp2y=apexY*1.05;
+  for(let i=0;i<=N/2;i++){
+    const t=i/(N/2);
+    const mt=1-t;
+    const x=mt*mt*mt*0+3*mt*mt*t*cp1x+3*mt*t*t*cp2x+t*t*t*apexX;
+    const y=mt*mt*mt*0+3*mt*mt*t*cp1y+3*mt*t*t*cp2y+t*t*t*apexY;
+    pts.push({x,y});
+  }
+  // Segment 2: apex → landing (carry, 0)
+  const cp3x=apexX+(carry-apexX)*0.15, cp3y=apexY*1.05;
+  const cp4x=apexX+(carry-apexX)*0.65, cp4y=carry*Math.tan(desDeg*Math.PI/180)*0.25;
+  for(let i=1;i<=N/2;i++){
+    const t=i/(N/2);
+    const mt=1-t;
+    const x=mt*mt*mt*apexX+3*mt*mt*t*cp3x+3*mt*t*t*cp4x+t*t*t*carry;
+    const y=mt*mt*mt*apexY+3*mt*mt*t*cp3y+3*mt*t*t*cp4y+t*t*t*0;
+    pts.push({x,y});
+  }
+  return pts;
+}
+
+// Build overhead path: from tee (0,0) curving to (offline, carry)
+// Uses HLA to set initial direction, offline for landing
+function buildOverheadPath(carry, offline, hla){
+  const hlaDeg=hla||0;
+  const pts=[];
+  const N=50;
+  // Start direction from HLA, curve to landing point
+  const startDx=Math.sin(hlaDeg*Math.PI/180);
+  const startDy=1; // forward
+  const cp1x=startDx*carry*0.3, cp1y=startDy*carry*0.3;
+  const cp2x=offline*0.7, cp2y=carry*0.7;
+  for(let i=0;i<=N;i++){
+    const t=i/N, mt=1-t;
+    // Cubic bezier: (0,0) → cp1 → cp2 → (offline,carry)
+    const x=3*mt*mt*t*cp1x+3*mt*t*t*cp2x+t*t*t*offline;
+    const y=3*mt*mt*t*cp1y+3*mt*t*t*cp2y+t*t*t*carry;
+    pts.push({x,y});
+  }
+  return pts;
+}
+
+function drawTrajSide(fd,ccm,hasClub,hasPeak,hasVLA){
+  const cv=document.getElementById('trajSideCv');if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=Math.max(cv.parentElement.clientWidth-2,200);
+  const H=220;
+  cv.width=W;cv.height=H;ctx.clearRect(0,0,W,H);
+
+  const shots=fd.filter(d=>d.Carry>5);
+  if(!shots.length)return;
+
+  const pad={l:48,r:16,t:16,b:32};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  const maxCarry=Math.max(...shots.map(d=>d.Carry||0))*1.06;
+  // Peak height: convert ft to yds (÷3), or estimate
+  const peaks=shots.map(d=>{
+    if(hasPeak&&d.PeakHeight>0)return d.PeakHeight/3; // ft→yds
+    // Estimate from VLA and carry: rough ballistic
+    const vla=d.VLA||12;
+    return (d.Carry||100)*Math.tan(vla*Math.PI/180)*0.28;
+  });
+  const maxPeak=Math.max(...peaks)*1.15;
+
+  const tx=v=>pad.l+(v/maxCarry)*pw;
+  const ty=v=>pad.t+(1-(v/maxPeak))*ph;
+
+  // Store coordinate functions and landing points for hit testing
+  cv._trajPts=[];
+  cv._txFn=tx;
+  cv._tyFn=ty;
+
+  // Ground line
+  ctx.strokeStyle='rgba(109,179,109,.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(pad.l,pad.t+ph);ctx.lineTo(pad.l+pw,pad.t+ph);ctx.stroke();
+
+  // Distance grid lines
+  ctx.strokeStyle='rgba(109,179,109,.06)';ctx.lineWidth=1;
+  const distStep=maxCarry>250?50:maxCarry>150?25:10;
+  for(let v=distStep;v<maxCarry;v+=distStep){
+    ctx.beginPath();ctx.moveTo(tx(v),pad.t);ctx.lineTo(tx(v),pad.t+ph);ctx.stroke();
+  }
+
+  // Draw all ghost arcs first
+  shots.forEach((d,i)=>{
+    const isSel=d._idx===selectedIdx;
+    const isHov=d._idx===hoveredIdx;
+    if(!trajShowAll&&!isSel&&!isHov)return;
+    if(isSel||isHov)return; // draw these on top
+
+    const peak=peaks[fd.indexOf(d)];
+    const arc=buildArc(d.Carry||0,peak,d.VLA,d.Descent);
+    const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+    const dimmed=selectedIdx!==null;
+    ctx.beginPath();
+    arc.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+    ctx.strokeStyle=col+(dimmed?'18':'2a');
+    ctx.lineWidth=1;ctx.stroke();
+
+    // Store landing point for hit testing
+    const lx=tx(d.Carry||0), ly=pad.t+ph;
+    cv._trajPts.push({x:lx,y:ly,idx:d._idx});
+    // Small landing tick
+    ctx.beginPath();ctx.arc(lx,ly,2,0,Math.PI*2);
+    ctx.fillStyle=col+(dimmed?'33':'55');ctx.fill();
+  });
+
+  // Draw hovered arc
+  if(hoveredIdx!==null){
+    const d=fd.find(d=>d._idx===hoveredIdx);
+    if(d&&d.Carry>5){
+      const peakIdx=fd.indexOf(d);
+      const peak=peaks[peakIdx];
+      const arc=buildArc(d.Carry||0,peak,d.VLA,d.Descent);
+      const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+      ctx.beginPath();
+      arc.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle=col+'cc';ctx.lineWidth=2;ctx.stroke();
+      // Apex dot
+      const apexPt=arc[Math.floor(arc.length*0.45)];
+      ctx.beginPath();ctx.arc(tx(apexPt.x),ty(apexPt.y),3,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.fill();
+    }
+  }
+
+  // Draw selected arc prominently
+  if(selectedIdx!==null){
+    const d=fd.find(d=>d._idx===selectedIdx);
+    if(d&&d.Carry>5){
+      const peakIdx=fd.indexOf(d);
+      const peak=peaks[peakIdx];
+      const arc=buildArc(d.Carry||0,peak,d.VLA,d.Descent);
+      const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+
+      // Glow
+      ctx.beginPath();
+      arc.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle='rgba(255,240,122,.15)';ctx.lineWidth=6;ctx.stroke();
+
+      // Main arc
+      ctx.beginPath();
+      arc.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle='var(--sel)';ctx.lineWidth=2.5;ctx.stroke();
+
+      // Apex
+      const apexPt=arc[Math.floor(arc.length*0.45)];
+      ctx.beginPath();ctx.arc(tx(apexPt.x),ty(apexPt.y),5,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+      // Peak height label
+      const peakYds=peak;
+      const peakFt=hasPeak&&d.PeakHeight>0?d.PeakHeight:peakYds*3;
+      ctx.fillStyle='var(--sel)';ctx.font='bold 9px DM Mono,monospace';ctx.textAlign='center';
+      ctx.fillText(`⬆ ${peakFt.toFixed(0)} ft`,tx(apexPt.x),ty(apexPt.y)-8);
+
+      // Landing marker
+      ctx.beginPath();ctx.arc(tx(d.Carry||0),pad.t+ph,5,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+      // Carry label
+      ctx.fillStyle='var(--sel)';ctx.font='bold 9px DM Mono,monospace';ctx.textAlign='center';
+      ctx.fillText(`${(d.Carry||0).toFixed(0)} yds`,tx(d.Carry||0),pad.t+ph+14);
+
+      // VLA / Descent annotations
+      if(d.VLA!==null){
+        ctx.fillStyle='rgba(255,240,122,.6)';ctx.font='8px DM Mono,monospace';ctx.textAlign='left';
+        ctx.fillText(`VLA ${d.VLA.toFixed(1)}°`,pad.l+4,pad.t+ph-8);
+      }
+      if(d.Descent!==null){
+        ctx.fillStyle='rgba(255,240,122,.6)';ctx.font='8px DM Mono,monospace';ctx.textAlign='right';
+        ctx.fillText(`↓ ${d.Descent.toFixed(1)}°`,tx(d.Carry||0)-2,pad.t+ph-8);
+      }
+    }
+  }
+
+  // Y axis (height)
+  ctx.fillStyle='rgba(138,154,122,.6)';ctx.font='9px DM Mono,monospace';ctx.textAlign='right';
+  const hStep=maxPeak>80?20:maxPeak>40?10:5;
+  for(let v=0;v<=maxPeak;v+=hStep){
+    const y=ty(v);if(y<pad.t)break;
+    ctx.fillText((v*3).toFixed(0)+'ft',pad.l-4,y+3);
+    if(v>0){ctx.strokeStyle='rgba(109,179,109,.05)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke();}
+  }
+  ctx.save();ctx.translate(11,pad.t+ph/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='rgba(138,154,122,.5)';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+  ctx.fillText('Height (ft)',0,0);ctx.restore();
+
+  // X axis (distance)
+  ctx.fillStyle='rgba(138,154,122,.6)';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+  for(let v=0;v<=maxCarry;v+=distStep){ctx.fillText(v+'y',tx(v),pad.t+ph+14);}
+  ctx.fillStyle='rgba(138,154,122,.5)';ctx.fillText('Carry (yds)',pad.l+pw/2,H-1);
+}
+
+function drawTrajOver(fd,ccm,hasClub,hasOffline){
+  const cv=document.getElementById('trajOverCv');if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const W=Math.max(cv.parentElement.clientWidth-2,200);
+  const H=480;
+  cv.width=W;cv.height=H;ctx.clearRect(0,0,W,H);
+
+  const shots=fd.filter(d=>d.Carry>5&&(hasOffline?d.Offline!==null:true));
+  if(!shots.length)return;
+
+  const pad={l:44,r:20,t:16,b:32};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  const maxCarry=Math.max(...shots.map(d=>d.Carry||0))*1.08;
+  const offlines=shots.map(d=>hasOffline?(d.Offline||0):0);
+  const xAbsMax=Math.max(Math.max(...offlines.map(Math.abs)),15)*1.3;
+
+  // Coordinate transform: x=offline(left/right), y=carry(forward=up on screen)
+  const tx=v=>pad.l+((v+xAbsMax)/(2*xAbsMax))*pw;
+  const ty=v=>pad.t+(1-(v/maxCarry))*ph;
+
+  cv._trajPts=[];
+
+  // Fairway shading ±15 yds
+  ctx.fillStyle='rgba(45,74,45,.18)';
+  ctx.fillRect(tx(-15),pad.t,tx(15)-tx(-15),ph);
+
+  // Center line
+  ctx.strokeStyle='rgba(109,179,109,.18)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(tx(0),pad.t);ctx.lineTo(tx(0),pad.t+ph);ctx.stroke();ctx.setLineDash([]);
+
+  // Carry grid lines
+  ctx.strokeStyle='rgba(109,179,109,.06)';ctx.lineWidth=1;
+  const cStep=maxCarry>250?50:25;
+  for(let v=cStep;v<maxCarry;v+=cStep){
+    ctx.beginPath();ctx.moveTo(pad.l,ty(v));ctx.lineTo(pad.l+pw,ty(v));ctx.stroke();
+  }
+
+  // Draw all ghost paths
+  shots.forEach(d=>{
+    const isSel=d._idx===selectedIdx;
+    const isHov=d._idx===hoveredIdx;
+    if(!trajShowAll&&!isSel&&!isHov)return;
+    if(isSel||isHov)return;
+
+    const path=buildOverheadPath(d.Carry||0,hasOffline?(d.Offline||0):0,d.HLA);
+    const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+    const dimmed=selectedIdx!==null;
+    ctx.beginPath();
+    path.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+    ctx.strokeStyle=col+(dimmed?'18':'28');ctx.lineWidth=1;ctx.stroke();
+
+    // Landing dot
+    const lx=tx(hasOffline?(d.Offline||0):0), ly=ty(d.Carry||0);
+    cv._trajPts.push({x:lx,y:ly,idx:d._idx});
+    ctx.beginPath();ctx.arc(lx,ly,2.5,0,Math.PI*2);
+    ctx.fillStyle=col+(dimmed?'44':'88');ctx.fill();
+  });
+
+  // Hovered path
+  if(hoveredIdx!==null){
+    const d=fd.find(d=>d._idx===hoveredIdx);
+    if(d&&d.Carry>5){
+      const path=buildOverheadPath(d.Carry||0,hasOffline?(d.Offline||0):0,d.HLA);
+      const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+      ctx.beginPath();
+      path.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle=col+'cc';ctx.lineWidth=2;ctx.stroke();
+      const lx=tx(hasOffline?(d.Offline||0):0),ly=ty(d.Carry||0);
+      ctx.beginPath();ctx.arc(lx,ly,4,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    }
+  }
+
+  // Selected path
+  if(selectedIdx!==null){
+    const d=fd.find(d=>d._idx===selectedIdx);
+    if(d&&d.Carry>5){
+      const path=buildOverheadPath(d.Carry||0,hasOffline?(d.Offline||0):0,d.HLA);
+      const col=(hasClub&&d.Club&&ccm[d.Club])?ccm[d.Club]:PALETTE[0];
+
+      // Glow path
+      ctx.beginPath();
+      path.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle='rgba(255,240,122,.15)';ctx.lineWidth=6;ctx.stroke();
+
+      // Main path
+      ctx.beginPath();
+      path.forEach((p,j)=>{j===0?ctx.moveTo(tx(p.x),ty(p.y)):ctx.lineTo(tx(p.x),ty(p.y));});
+      ctx.strokeStyle='var(--sel)';ctx.lineWidth=2.5;ctx.stroke();
+
+      // Tee marker
+      ctx.beginPath();ctx.arc(tx(0),ty(0),5,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,240,122,.3)';ctx.fill();
+      ctx.beginPath();ctx.arc(tx(0),ty(0),3,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();
+
+      // Landing marker
+      const lx=tx(hasOffline?(d.Offline||0):0),ly=ty(d.Carry||0);
+      ctx.beginPath();ctx.arc(lx,ly,7,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,240,122,.15)';ctx.fill();
+      ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);
+      ctx.fillStyle='var(--sel)';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+
+      // Labels
+      ctx.fillStyle='var(--sel)';ctx.font='bold 9px DM Mono,monospace';ctx.textAlign='center';
+      ctx.fillText(`${(d.Carry||0).toFixed(0)} yds`,lx,ly-10);
+      if(hasOffline&&d.Offline!==null){
+        const offStr=(d.Offline>0?'+':'')+d.Offline.toFixed(1)+' yds';
+        ctx.fillText(offStr,lx,ly-20);
+      }
+    }
+  }
+
+  // Axes
+  ctx.fillStyle='rgba(138,154,122,.6)';ctx.font='9px DM Mono,monospace';ctx.textAlign='right';
+  for(let v=0;v<=maxCarry;v+=cStep){ctx.fillText(v+'y',pad.l-4,ty(v)+3);}
+  ctx.save();ctx.translate(11,pad.t+ph/2);ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='rgba(138,154,122,.5)';ctx.font='9px DM Mono,monospace';ctx.textAlign='center';
+  ctx.fillText('Carry (yds)',0,0);ctx.restore();
+  ctx.fillStyle='rgba(138,154,122,.6)';ctx.textAlign='center';
+  const xStep=xAbsMax>60?30:xAbsMax>30?20:10;
+  for(let v=-Math.ceil(xAbsMax/xStep)*xStep;v<=xAbsMax;v+=xStep)ctx.fillText(v,tx(v),pad.t+ph+14);
+  ctx.fillStyle='rgba(138,154,122,.5)';ctx.fillText('← LEFT  ·  Offline (yds)  ·  RIGHT →',pad.l+pw/2,H-1);
+}
+
+function attachTrajEvents(id,fd,ccm,hasClub,viewType){
+  const cv=document.getElementById(id);if(!cv)return;
+  // Hit test against landing points stored in cv._trajPts
+  function hit(mx,my){
+    if(!cv._trajPts||!cv._trajPts.length)return null;
+    const rect=cv.getBoundingClientRect();
+    const cx=(mx-rect.left)*(cv.width/rect.width);
+    const cy=(my-rect.top)*(cv.height/rect.height);
+    let best=null,bestD=Infinity;
+    cv._trajPts.forEach(p=>{
+      const d=Math.hypot(cx-p.x,cy-p.y);
+      if(d<24&&d<bestD){bestD=d;best=p;}
+    });
+    return best;
+  }
+  cv.addEventListener('mousemove',e=>{
+    const p=hit(e.clientX,e.clientY);
+    const newHov=p?p.idx:null;
+    if(newHov!==hoveredIdx){
+      hoveredIdx=newHov;
+      redrawAllCharts();
+      redrawTrajectory();
+    }
+    if(p){const d=fd.find(d=>d._idx===p.idx);if(d)showTooltip(d,e.clientX,e.clientY);}
+    else hideTooltip();
+    if(ttEl.style.display==='block')positionTooltip(e.clientX,e.clientY);
+  });
+  cv.addEventListener('mouseleave',()=>{
+    if(hoveredIdx!==null){hoveredIdx=null;redrawAllCharts();redrawTrajectory();}
+    hideTooltip();
+  });
+  cv.addEventListener('click',e=>{
+    const p=hit(e.clientX,e.clientY);
+    if(p){selectShot(p.idx);}else{clearSelection();}
+    redrawTrajectory();
+  });
+}
+
+function redrawTrajectory(){
+  const fd=getFiltered();
+  const clubs=getClubs();
+  const ccm={};clubs.forEach((c,i)=>{ccm[c]=PALETTE[i%PALETTE.length]});
+  const hasClub=clubs.length>0;
+  const hasPeak=mapping['PeakHeight']&&mapping['PeakHeight']!=='__none__';
+  const hasVLA=mapping['VLA']&&mapping['VLA']!=='__none__';
+  const hasOffline=mapping['Offline']&&mapping['Offline']!=='__none__';
+  if(document.getElementById('trajSideCv'))drawTrajSide(fd,ccm,hasClub,hasPeak,hasVLA);
+  if(document.getElementById('trajOverCv'))drawTrajOver(fd,ccm,hasClub,hasOffline);
+
+  // Update shot label
+  const selD=selectedIdx!==null?mappedData.find(r=>r._idx===selectedIdx):null;
+  const trajLabel=document.getElementById('trajShotLabel');
+  if(trajLabel)trajLabel.textContent=selD?`Shot #${selectedIdx}${selD.Club?' · '+selD.Club:''}`:'all shots';
+}
+
+// ── RESET ──────────────────────────────────────────────────────────────────
+function resetApp(){
+  rawData=[];csvCols=[];mappedData=[];mapping={};activeClub='ALL';mappingOpen=false;
+  selectedIdx=null;hoveredIdx=null;chartRenderers.length=0;
+  document.getElementById('fileInput').value='';
+  document.getElementById('uploadScreen').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('mappingBody').style.display='none';
+  document.getElementById('mappingToggleLabel').textContent='▼ Adjust';
+  document.getElementById('selectionBar').classList.remove('visible');
+  document.getElementById('trajectoryPanel').style.display='none';
+  ['mapperGrid','clubTabs','statsRow','chartGrid','shotTableHead','shotTableBody'].forEach(id=>document.getElementById(id).innerHTML='');
+  hideTooltip();
+}
+
+window.addEventListener('resize',()=>{if(mappedData.length){buildCharts();redrawTrajectory();}});
+</script>
+</body>
+</html>
